@@ -28,7 +28,7 @@ The connection asks for a conv2pdf API key, created in the Developer tab of the 
 npm install
 npm test
 npx zapier-platform validate
-npx zapier-platform push --skip-dep-install
+npx zapier-platform push
 ```
 
 The integration runs on Node.js 22 in Zapier. `branding/logo-512.png` is the logo uploaded in the Zapier Platform UI.
