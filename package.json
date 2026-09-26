@@ -1,0 +1,29 @@
+{
+  "name": "zapier-conv2pdf",
+  "version": "1.0.0",
+  "description": "conv2pdf is a file conversion API that turns Word, Excel and PowerPoint files into PDF, and merges, compresses or converts PDFs.",
+  "homepage": "https://conv2pdf.com/en/api/",
+  "main": "index.js",
+  "private": true,
+  "license": "MIT",
+  "author": "Jamal Tantaoui <contact@conv2pdf.com>",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "jest --testTimeout 10000",
+    "validate": "zapier-platform validate"
+  },
+  "dependencies": {
+    "form-data": "4.0.6",
+    "zapier-platform-core": "19.1.0"
+  },
+  "overrides": {
+    "form-data": "4.0.6"
+  },
+  "devDependencies": {
+    "jest": "^30.0.0",
+    "nock": "^14.0.0",
+    "zapier-platform-cli": "19.1.0"
+  }
+}
