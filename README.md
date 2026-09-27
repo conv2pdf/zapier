@@ -2,6 +2,8 @@
 
 The Zapier integration of the [conv2pdf API](https://conv2pdf.com/en/api/): it converts Word, Excel and PowerPoint files to PDF, merges and compresses PDFs, and converts PDFs to Word, on servers in France.
 
+It is published on Zapier: [conv2pdf integrations](https://zapier.com/apps/conv2pdf/integrations). AI assistants can also call its actions through Zapier MCP.
+
 ## Actions
 
 | Action | conv2pdf tool | Input |
