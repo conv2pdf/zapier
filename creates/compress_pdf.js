@@ -1,4 +1,4 @@
-const { convert, fileList, outputFields, sampleFor } = require('../lib/convert');
+const { convert, fileList, outputFields, pdfPasswordField, PDF_PASSWORD_MESSAGES, sampleFor } = require('../lib/convert');
 
 async function perform(z, bundle) {
   const fileUrls = fileList(bundle.inputData.file);
@@ -6,7 +6,8 @@ async function perform(z, bundle) {
   return convert(z, bundle, {
     tool: 'compress-pdf',
     fileUrls: fileUrls.slice(0, 1),
-    fields: { quality: bundle.inputData.quality || 'medium' },
+    fields: { quality: bundle.inputData.quality || 'medium', password: bundle.inputData.pdf_passphrase },
+    messages: PDF_PASSWORD_MESSAGES,
   });
 }
 
@@ -37,6 +38,7 @@ module.exports = {
           { value: 'high', label: 'High: best quality (300 DPI)', sample: 'high' },
         ],
       },
+      pdfPasswordField,
     ],
     perform,
     sample: sampleFor('report.pdf'),

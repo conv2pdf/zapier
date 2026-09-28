@@ -1,11 +1,16 @@
-const { convert, fileList, outputFields, sampleFor } = require('../lib/convert');
+const { convert, fileList, outputFields, pdfPasswordField, PDF_PASSWORD_MESSAGES, sampleFor } = require('../lib/convert');
 
 async function perform(z, bundle) {
   const fileUrls = fileList(bundle.inputData.file);
   if (fileUrls.length === 0) throw new z.errors.HaltedError('The PDF field is empty: map a file.');
   const text = String(bundle.inputData.text ?? '').trim();
   if (!text) throw new z.errors.HaltedError('The Watermark text field is empty.');
-  return convert(z, bundle, { tool: 'watermark-pdf', fileUrls: fileUrls.slice(0, 1), fields: { text } });
+  return convert(z, bundle, {
+    tool: 'watermark-pdf',
+    fileUrls: fileUrls.slice(0, 1),
+    fields: { text, password: bundle.inputData.pdf_passphrase },
+    messages: PDF_PASSWORD_MESSAGES,
+  });
 }
 
 module.exports = {
@@ -32,6 +37,7 @@ module.exports = {
         helpText:
           'Up to 50 characters, such as `CONFIDENTIAL`. Only Latin letters, digits and punctuation are printed: other characters, such as emoji, are left out.',
       },
+      pdfPasswordField,
     ],
     perform,
     sample: sampleFor('report.pdf'),

@@ -538,6 +538,65 @@ describe('Files that do not match the action', () => {
   });
 });
 
+// The actions whose tool opens a protected PDF with its password.
+const PDF_PASSWORD_ACTIONS = [
+  'compress_pdf',
+  'convert_pdf_to_word',
+  'convert_pdf_to_images',
+  'extract_pdf_pages',
+  'rotate_pdf',
+  'add_watermark',
+  'add_page_numbers',
+];
+
+describe('PDF password', () => {
+  it.each(Object.keys(App.creates))('offers the PDF password on %s only when its tool can use it', (key) => {
+    const field = App.creates[key].operation.inputFields.find((f) => f.label === 'PDF password');
+    expect(Boolean(field)).toBe(PDF_PASSWORD_ACTIONS.includes(key));
+  });
+
+  it('sends the password of a protected PDF', async () => {
+    const { sent } = await sentBy('compress_pdf', 'compress-pdf', { quality: 'low', pdf_passphrase: 'open sesame' });
+
+    expect(fieldOf(sent, 'password')).toBe('open sesame');
+    expect(fieldOf(sent, 'quality')).toBe('low');
+  });
+
+  it('sends no password when the field is empty', async () => {
+    const { sent } = await sentBy('rotate_pdf', 'rotate-pdf', { rotation: '180', pdf_passphrase: '' });
+
+    expect(fieldOf(sent, 'password')).toBeUndefined();
+  });
+
+  it('points to the PDF password field when the PDF needs one', async () => {
+    const error = await refusedBy('add_page_numbers', 'page-numbers-pdf', 422, { error: 'needs_password' });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/fill in the PDF password field/);
+  });
+
+  it('says when the PDF password does not open the PDF', async () => {
+    const error = await refusedBy('convert_pdf_to_word', 'pdf-to-word', 422, { error: 'wrong_password' }, {
+      pdf_passphrase: 'guess',
+    });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/^The PDF password does not open this PDF\./);
+  });
+
+  it('still sends a merged PDF that needs a password to the Unlock PDF action', async () => {
+    source().get('/one.pdf').reply(200, 'PDF-ONE', { 'Content-Type': 'application/pdf' });
+    source().get('/two.pdf').reply(200, 'PDF-TWO', { 'Content-Type': 'application/pdf' });
+    api().post('/v1/convert/merge-pdf').reply(422, { error: 'password_protected' });
+
+    const error = await appTester(perform('merge_pdfs'), bundleFor({ files: [`${SOURCE}/one.pdf`, `${SOURCE}/two.pdf`] })).catch(
+      (e) => e,
+    );
+
+    expect(error.message).toMatch(/Unlock PDF action/);
+  });
+});
+
 describe('Definition', () => {
   it.each(Object.keys(App.creates))('keeps the sample of %s aligned with its output fields', (key) => {
     const { sample, outputFields } = App.creates[key].operation;

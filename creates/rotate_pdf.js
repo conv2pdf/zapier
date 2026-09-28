@@ -1,4 +1,4 @@
-const { convert, fileList, outputFields, sampleFor } = require('../lib/convert');
+const { convert, fileList, outputFields, pdfPasswordField, PDF_PASSWORD_MESSAGES, sampleFor } = require('../lib/convert');
 
 async function perform(z, bundle) {
   const fileUrls = fileList(bundle.inputData.file);
@@ -6,7 +6,8 @@ async function perform(z, bundle) {
   return convert(z, bundle, {
     tool: 'rotate-pdf',
     fileUrls: fileUrls.slice(0, 1),
-    fields: { rotation: bundle.inputData.rotation || '90' },
+    fields: { rotation: bundle.inputData.rotation || '90', password: bundle.inputData.pdf_passphrase },
+    messages: PDF_PASSWORD_MESSAGES,
   });
 }
 
@@ -38,6 +39,7 @@ module.exports = {
           { value: '270', label: '270 degrees (90 degrees counterclockwise)', sample: '270' },
         ],
       },
+      pdfPasswordField,
     ],
     perform,
     sample: sampleFor('report.pdf'),

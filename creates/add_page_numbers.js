@@ -1,4 +1,4 @@
-const { convert, fileList, outputFields, sampleFor } = require('../lib/convert');
+const { convert, fileList, outputFields, pdfPasswordField, PDF_PASSWORD_MESSAGES, sampleFor } = require('../lib/convert');
 
 async function perform(z, bundle) {
   const fileUrls = fileList(bundle.inputData.file);
@@ -9,7 +9,9 @@ async function perform(z, bundle) {
     fields: {
       position: bundle.inputData.position || 'bottom-center',
       format: bundle.inputData.format || 'full',
+      password: bundle.inputData.pdf_passphrase,
     },
+    messages: PDF_PASSWORD_MESSAGES,
   });
 }
 
@@ -50,6 +52,7 @@ module.exports = {
           { value: 'simple', label: 'Page number only, such as 3', sample: 'simple' },
         ],
       },
+      pdfPasswordField,
     ],
     perform,
     sample: sampleFor('report.pdf'),

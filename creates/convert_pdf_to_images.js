@@ -1,4 +1,4 @@
-const { convert, fileList, outputFields, sampleFor } = require('../lib/convert');
+const { convert, fileList, outputFields, pdfPasswordField, PDF_PASSWORD_MESSAGES, sampleFor } = require('../lib/convert');
 
 async function perform(z, bundle) {
   const fileUrls = fileList(bundle.inputData.file);
@@ -6,7 +6,8 @@ async function perform(z, bundle) {
   return convert(z, bundle, {
     tool: 'pdf-to-image',
     fileUrls: fileUrls.slice(0, 1),
-    fields: { format: bundle.inputData.format || 'png' },
+    fields: { format: bundle.inputData.format || 'png', password: bundle.inputData.pdf_passphrase },
+    messages: PDF_PASSWORD_MESSAGES,
   });
 }
 
@@ -36,6 +37,7 @@ module.exports = {
           { value: 'jpg', label: 'JPG: smaller files for photos', sample: 'jpg' },
         ],
       },
+      pdfPasswordField,
     ],
     perform,
     sample: sampleFor('report.zip'),
