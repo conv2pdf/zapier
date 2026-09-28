@@ -24,21 +24,90 @@ function includeApiKey(request, z, bundle) {
   return request;
 }
 
-// Messages for the codes conv2pdf returns in the `error` field. Halted: the problem is
-// this file or this run, the Zap stays on. Failed: the account needs the user's attention.
+// A table entry for a value from the API, never a property every object inherits.
+const own = (table, key) => (key !== undefined && Object.hasOwn(table, key) ? table[key] : undefined);
+
+const OFFICE_ELSEWHERE = 'This file is an office document: use the Convert Office Document to PDF action.';
+const IMAGE_ELSEWHERE = 'This file is an image: use the Convert Image to PDF action.';
+const WEB_PAGE =
+  'This file contains a web page, not the expected document. Map the file itself: a share or preview link returns the page that displays the file.';
+
+// What conv2pdf found in a file that does not match the action (`detected_type`).
+const CONTENT_HINTS = {
+  pdf: 'This file is already a PDF.',
+  epub: 'This file is an EPUB e-book: use the Convert EPUB to PDF action.',
+  pages: OFFICE_ELSEWHERE,
+  docx: OFFICE_ELSEWHERE,
+  xlsx: OFFICE_ELSEWHERE,
+  pptx: OFFICE_ELSEWHERE,
+  odt: OFFICE_ELSEWHERE,
+  ods: OFFICE_ELSEWHERE,
+  odp: OFFICE_ELSEWHERE,
+  odg: OFFICE_ELSEWHERE,
+  png: IMAGE_ELSEWHERE,
+  jpeg: IMAGE_ELSEWHERE,
+  gif: IMAGE_ELSEWHERE,
+  webp: IMAGE_ELSEWHERE,
+  tiff: IMAGE_ELSEWHERE,
+  heic: 'This file is a HEIC photo: use the Convert HEIC to PDF or Convert HEIC to JPG action.',
+  html: WEB_PAGE,
+  xml: WEB_PAGE,
+  svg: WEB_PAGE,
+  text: 'This file contains plain text, not the expected document.',
+  image_corrupt: 'This image is damaged or incomplete.',
+  zip_corrupt: 'This file is damaged or incomplete.',
+  msg: 'This file is an Outlook message (.msg), not a document: map its attachment instead.',
+  iwork_numbers:
+    'This file is a Numbers spreadsheet, which conv2pdf does not convert: it would come out sliced column by column, without its charts. Open it in Numbers and choose File > Export To > PDF.',
+  iwork_keynote:
+    'This file is a Keynote presentation, which conv2pdf does not convert: its titles and templates would come out overlapping. Open it in Keynote and choose File > Export To > PDF.',
+  iwork:
+    'This file is an Apple iWork document. conv2pdf converts Pages documents only, named with their .pages extension. For Numbers and Keynote, choose File > Export To > PDF in the app.',
+};
+
+// The fields the API names in `field` when a required one is empty.
+const FIELD_LABELS = { ranges: 'Pages', text: 'Watermark text', password: 'Password' };
+
+// Messages for the codes conv2pdf returns in the `error` field, as text or built from
+// the response body. Halted: the problem is this file or this run, the Zap stays on.
+// Failed: the account needs the user's attention.
 const HALTED = {
   file_too_large: `The file is larger than your conv2pdf plan allows: 10 MB per file on the Dev plan, 200 MB on paid plans. Plans: ${PRICING_URL}`,
+  payload_too_large: 'The request is larger than conv2pdf accepts: 220 MB for the files and fields together.',
   plan_limit_files: `Your conv2pdf plan does not merge that many files at once: 2 on the Dev plan, up to 20 on paid plans. Plans: ${PRICING_URL}`,
   not_enough_files: 'Merging needs at least 2 PDFs.',
   too_many_files: 'conv2pdf merges up to 20 PDFs at a time.',
-  unsupported_content:
+  unsupported_content: (body) =>
+    own(CONTENT_HINTS, body.detected_type) ||
     'The file does not match this action. conv2pdf checks the content of the file, not only its name: map the right file.',
+  unsupported_format: 'conv2pdf cannot read this image format. Use a PNG, JPG, WebP, GIF or TIFF image.',
   empty_file: 'The file is empty.',
-  password_protected: 'The PDF is protected with a password. Remove the password before converting it.',
-  needs_password: 'The PDF is protected with a password. Remove the password before converting it.',
+  source_unreadable: 'conv2pdf could not read this file: it may be damaged or incomplete.',
+  field_required: (body) =>
+    own(FIELD_LABELS, body.field) ? `The ${FIELD_LABELS[body.field]} field is empty.` : 'A required field is empty.',
+  invalid_page_range: (body) =>
+    `The pages${body.range ? ` "${body.range}"` : ''} are not valid${Number.isInteger(body.total_pages) ? ` for this PDF of ${body.total_pages} pages` : ''}. Use page numbers and ranges separated by commas, such as 1-5,7,10-12.`,
+  invalid_rotation: 'The rotation must be 90, 180 or 270 degrees.',
+  invalid_format: 'The image format must be PNG or JPG.',
+  invalid_quality: 'The image quality must be low, medium or high.',
+  password_protected: 'The PDF is protected with a password. Unlock it first with the Unlock PDF action.',
+  needs_password: 'The PDF is protected with a password. Unlock it first with the Unlock PDF action.',
+  wrong_password: 'The password does not open this PDF.',
+  password_too_short: (body) => `The password must have at least ${body.min || 6} characters.`,
+  password_too_long: (body) => `The password must have at most ${body.max || 64} characters.`,
+  pdf_already_protected: 'The PDF is already protected with a password. Unlock it first with the Unlock PDF action.',
+  pdf_not_protected: 'The PDF has no password or restriction to remove.',
   pdf_scanned_needs_ocr: 'This PDF is a scan without text, so it cannot be converted to Word.',
   pdf_too_many_pages: 'The PDF has too many pages for this action.',
-  too_many_pages: 'The document has too many pages for this action.',
+  too_many_pages: (body) =>
+    Number.isInteger(body.max_pages)
+      ? `The document has more than the ${body.max_pages.toLocaleString('en-US')} pages this action accepts.`
+      : 'The document has too many pages for this action.',
+  unsupported_characters:
+    'The watermark text has no character conv2pdf can print: use Latin letters, digits and punctuation.',
+  epub_blank_output:
+    'This e-book could not be converted: its pages are full-screen images (comics, picture books, manga), and their layout does not survive the conversion to PDF.',
+  epub_too_long: 'The e-book is longer than the 1,500 pages conv2pdf converts at once.',
   output_too_large: 'The result is too large to be delivered.',
   conversion_failed: 'conv2pdf could not process this file. Failed conversions do not count against your quota.',
   conversion_timeout:
@@ -58,8 +127,11 @@ function retryAfterSeconds(headers, body) {
   return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : DEFAULT_RETRY_AFTER_SECONDS;
 }
 
-/** The Zapier error for a failed conv2pdf response (status, JSON body, headers). */
-function apiError(z, bundle, status, body, headers) {
+/**
+ * The Zapier error for a failed conv2pdf response (status, JSON body, headers). An
+ * action can word the message of a halting code itself (`messages`).
+ */
+function apiError(z, bundle, status, body, headers, messages = {}) {
   const code = body && typeof body.error === 'string' ? body.error : undefined;
 
   if (status === 401 || code === 'invalid_api_key' || code === 'missing_bearer_token') {
@@ -75,8 +147,9 @@ function apiError(z, bundle, status, body, headers) {
         : 'The conv2pdf conversion queue is full. Zapier retries this run automatically.';
     return new z.errors.ThrottledError(message, retryAfterSeconds(headers, body));
   }
-  if (code && HALTED[code]) return new z.errors.HaltedError(HALTED[code]);
-  if (code && FAILED[code]) return new z.errors.Error(FAILED[code], code, status);
+  const halted = own(messages, code) || own(HALTED, code);
+  if (halted) return new z.errors.HaltedError(typeof halted === 'function' ? halted(body) : halted);
+  if (own(FAILED, code)) return new z.errors.Error(FAILED[code], code, status);
   if (status >= 500) {
     return new z.errors.Error(
       'conv2pdf is temporarily unavailable. Failed conversions do not count against your quota; replay this run in a few minutes.',

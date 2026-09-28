@@ -210,6 +210,324 @@ describe('Convert PDF to Word', () => {
   });
 });
 
+// Runs an action on a PDF and returns the multipart body conv2pdf received.
+async function sentBy(key, tool, inputData, download = ['%PDF out', 'in.pdf', 'application/pdf']) {
+  let sent;
+  source().get('/in.pdf').reply(200, 'PDF-IN', { 'Content-Type': 'application/pdf' });
+  api()
+    .post(`/v1/convert/${tool}`, (body) => {
+      sent = body;
+      return true;
+    })
+    .reply(200, { job_id: 'jobF', status: 'success' });
+  mockDownloadAndDelete('jobF', ...download);
+  const result = await appTester(perform(key), bundleFor({ file: `${SOURCE}/in.pdf`, ...inputData }));
+  return { sent, result };
+}
+
+// A text field of a multipart body, or undefined when it was not sent.
+const fieldOf = (body, name) => {
+  const match = new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)\\r\\n`).exec(body);
+  return match ? match[1] : undefined;
+};
+
+// Runs an action on a PDF that conv2pdf refuses.
+function refusedBy(key, tool, status, body, inputData = {}) {
+  source().get('/in.pdf').reply(200, 'PDF-IN', { 'Content-Type': 'application/pdf' });
+  api().post(`/v1/convert/${tool}`).reply(status, body);
+  return appTester(perform(key), bundleFor({ file: `${SOURCE}/in.pdf`, ...inputData })).catch((e) => e);
+}
+
+describe('Apple Pages documents', () => {
+  it('names a Pages file after its type, since only the name tells Pages from Numbers', async () => {
+    source().get('/x/memo').reply(200, 'PAGES-BYTES', { 'Content-Type': 'application/vnd.apple.pages' });
+    api()
+      .post('/v1/convert/office-to-pdf', (body) => body.includes('filename="memo.pages"'))
+      .reply(200, { job_id: 'job9', status: 'success' });
+    mockDownloadAndDelete('job9', '%PDF', 'memo.pdf', 'application/pdf');
+
+    const result = await appTester(perform('convert_office_to_pdf'), bundleFor({ file: `${SOURCE}/x/memo` }));
+
+    expect(result.file_name).toBe('memo.pdf');
+  });
+
+  it('explains that Numbers files are not converted', async () => {
+    const error = await refusedBy('convert_office_to_pdf', 'office-to-pdf', 415, {
+      error: 'unsupported_content',
+      detected_type: 'iwork_numbers',
+    });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/Numbers spreadsheet.*Export To > PDF/);
+  });
+});
+
+describe('Convert Image to PDF', () => {
+  it('sends an image without a name under the extension of its type', async () => {
+    source().get('/img/photo').reply(200, 'PNG-BYTES', { 'Content-Type': 'image/png' });
+    api()
+      .post('/v1/convert/image-to-pdf', (body) => body.includes('filename="photo.png"'))
+      .reply(200, { job_id: 'job10', status: 'success' });
+    mockDownloadAndDelete('job10', '%PDF', 'photo.pdf', 'application/pdf');
+
+    const result = await appTester(perform('convert_image_to_pdf'), bundleFor({ file: `${SOURCE}/img/photo` }));
+
+    expect(result.file_name).toBe('photo.pdf');
+  });
+});
+
+describe('HEIC photos', () => {
+  it('returns the JPG of a HEIC photo', async () => {
+    source().get('/IMG_0001.HEIC').reply(200, 'HEIC-BYTES', { 'Content-Type': 'image/heic' });
+    api()
+      .post('/v1/convert/heic-to-jpg', (body) => body.includes('filename="IMG_0001.HEIC"'))
+      .reply(200, { job_id: 'job11', status: 'success' });
+    mockDownloadAndDelete('job11', 'JPG-OUT', 'IMG_0001.jpg', 'image/jpeg');
+
+    const result = await appTester(perform('convert_heic_to_jpg'), bundleFor({ file: `${SOURCE}/IMG_0001.HEIC` }));
+
+    expect(result.file_name).toBe('IMG_0001.jpg');
+    expect(stash.mock.calls[0][3]).toBe('image/jpeg');
+  });
+
+  it('converts a HEIC photo to PDF', async () => {
+    source().get('/IMG_0002.heic').reply(200, 'HEIC-BYTES', { 'Content-Type': 'image/heic' });
+    api().post('/v1/convert/heic-to-pdf').reply(200, { job_id: 'job12', status: 'success' });
+    mockDownloadAndDelete('job12', '%PDF', 'IMG_0002.pdf', 'application/pdf');
+
+    const result = await appTester(perform('convert_heic_to_pdf'), bundleFor({ file: `${SOURCE}/IMG_0002.heic` }));
+
+    expect(result.file_name).toBe('IMG_0002.pdf');
+  });
+});
+
+describe('Convert EPUB to PDF', () => {
+  it('sends an e-book without a name under the .epub extension', async () => {
+    source().get('/ebooks/1342').reply(200, 'EPUB-BYTES', { 'Content-Type': 'application/epub+zip' });
+    api()
+      .post('/v1/convert/epub-to-pdf', (body) => body.includes('filename="1342.epub"'))
+      .reply(200, { job_id: 'job13', status: 'success' });
+    mockDownloadAndDelete('job13', '%PDF', '1342.pdf', 'application/pdf');
+
+    const result = await appTester(perform('convert_epub_to_pdf'), bundleFor({ file: `${SOURCE}/ebooks/1342` }));
+
+    expect(result.file_name).toBe('1342.pdf');
+  });
+
+  it('explains an e-book whose pages would come out blank', async () => {
+    const error = await refusedBy('convert_epub_to_pdf', 'epub-to-pdf', 422, { error: 'epub_blank_output' });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/full-screen images/);
+  });
+});
+
+describe('Extract Pages from PDF', () => {
+  it('sends the pages to keep', async () => {
+    const { sent } = await sentBy('extract_pdf_pages', 'split-pdf', { ranges: ' 1-3,5 ' });
+
+    expect(fieldOf(sent, 'ranges')).toBe('1-3,5');
+  });
+
+  it('stops before calling conv2pdf when no page is given', async () => {
+    const error = await appTester(perform('extract_pdf_pages'), bundleFor({ file: `${SOURCE}/in.pdf`, ranges: ' ' })).catch(
+      (e) => e,
+    );
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/Pages field is empty/);
+  });
+
+  it('names the page count of the PDF when the pages are out of range', async () => {
+    const error = await refusedBy('extract_pdf_pages', 'split-pdf', 400, {
+      error: 'invalid_page_range',
+      range: '9',
+      total_pages: 4,
+    }, { ranges: '9' });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/"9" are not valid for this PDF of 4 pages/);
+  });
+});
+
+describe('Rotate PDF', () => {
+  it('sends the chosen rotation', async () => {
+    const { sent } = await sentBy('rotate_pdf', 'rotate-pdf', { rotation: '180' });
+
+    expect(fieldOf(sent, 'rotation')).toBe('180');
+  });
+
+  it('turns the pages by 90 degrees when no rotation is chosen', async () => {
+    const { sent } = await sentBy('rotate_pdf', 'rotate-pdf', { rotation: '' });
+
+    expect(fieldOf(sent, 'rotation')).toBe('90');
+  });
+});
+
+describe('Add Page Numbers to PDF', () => {
+  it('sends the position and the format', async () => {
+    const { sent } = await sentBy('add_page_numbers', 'page-numbers-pdf', { position: 'bottom-right', format: 'simple' });
+
+    expect([fieldOf(sent, 'position'), fieldOf(sent, 'format')]).toEqual(['bottom-right', 'simple']);
+  });
+
+  it('numbers at the bottom center with the page count by default', async () => {
+    const { sent } = await sentBy('add_page_numbers', 'page-numbers-pdf', {});
+
+    expect([fieldOf(sent, 'position'), fieldOf(sent, 'format')]).toEqual(['bottom-center', 'full']);
+  });
+});
+
+describe('Add Watermark to PDF', () => {
+  it('sends the watermark text', async () => {
+    const { sent } = await sentBy('add_watermark', 'watermark-pdf', { text: 'CONFIDENTIAL' });
+
+    expect(fieldOf(sent, 'text')).toBe('CONFIDENTIAL');
+  });
+
+  it('stops before calling conv2pdf when the text is empty', async () => {
+    const error = await appTester(perform('add_watermark'), bundleFor({ file: `${SOURCE}/in.pdf`, text: '  ' })).catch((e) => e);
+
+    expect(error.name).toBe('HaltedError');
+  });
+
+  it('explains a text that conv2pdf cannot print', async () => {
+    const error = await refusedBy('add_watermark', 'watermark-pdf', 422, { error: 'unsupported_characters', field: 'text' }, {
+      text: '機密',
+    });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/Latin letters/);
+  });
+});
+
+describe('Protect PDF with Password', () => {
+  it('sends the password and only the restrictions that are on', async () => {
+    const { sent } = await sentBy('protect_pdf', 'protect-pdf', {
+      pdf_passphrase: 's3cret pass',
+      prevent_print: true,
+      prevent_copy: false,
+    });
+
+    expect(fieldOf(sent, 'password')).toBe('s3cret pass');
+    expect(fieldOf(sent, 'prevent_print')).toBe('on');
+    expect(fieldOf(sent, 'prevent_copy')).toBeUndefined();
+  });
+
+  it('reads mapped yes/no values', async () => {
+    const { sent } = await sentBy('protect_pdf', 'protect-pdf', {
+      pdf_passphrase: 's3cret pass',
+      prevent_print: 'false',
+      prevent_copy: 'yes',
+    });
+
+    expect(fieldOf(sent, 'prevent_print')).toBeUndefined();
+    expect(fieldOf(sent, 'prevent_copy')).toBe('on');
+  });
+
+  it('explains a password that is too short', async () => {
+    const error = await refusedBy('protect_pdf', 'protect-pdf', 400, { error: 'password_too_short', min: 6 }, {
+      pdf_passphrase: 'abc',
+    });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/^The password must have at least 6 characters\./);
+  });
+});
+
+describe('Unlock PDF', () => {
+  it('sends the password', async () => {
+    const { sent } = await sentBy('unlock_pdf', 'unlock-pdf', { pdf_passphrase: 'open-me' });
+
+    expect(fieldOf(sent, 'password')).toBe('open-me');
+  });
+
+  it('sends no password for a PDF that only restricts printing or copying', async () => {
+    const { sent } = await sentBy('unlock_pdf', 'unlock-pdf', { pdf_passphrase: '' });
+
+    expect(fieldOf(sent, 'password')).toBeUndefined();
+  });
+
+  it('asks for the password when the PDF needs one', async () => {
+    const error = await refusedBy('unlock_pdf', 'unlock-pdf', 422, { error: 'needs_password' });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/fill in the Password field/);
+  });
+
+  it('says when the password does not open the PDF', async () => {
+    const error = await refusedBy('unlock_pdf', 'unlock-pdf', 422, { error: 'wrong_password' }, { pdf_passphrase: 'guess' });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/does not guess it/);
+  });
+
+  it('explains a PDF that has nothing to unlock', async () => {
+    const error = await refusedBy('unlock_pdf', 'unlock-pdf', 422, { error: 'pdf_not_protected' });
+
+    expect(error.message).toMatch(/no password or restriction/);
+  });
+});
+
+describe('Convert PDF to Images', () => {
+  it('sends the image format and returns the ZIP of the pages', async () => {
+    const { sent, result } = await sentBy('convert_pdf_to_images', 'pdf-to-image', { format: 'jpg' }, [
+      'ZIP-OUT',
+      'in.zip',
+      'application/zip',
+    ]);
+
+    expect(fieldOf(sent, 'format')).toBe('jpg');
+    expect(result.file_name).toBe('in.zip');
+  });
+});
+
+describe('Files that do not match the action', () => {
+  it('points an e-book to the EPUB action', async () => {
+    const error = await refusedBy('convert_office_to_pdf', 'office-to-pdf', 415, {
+      error: 'unsupported_content',
+      detected_type: 'epub',
+    });
+
+    expect(error.message).toMatch(/Convert EPUB to PDF action/);
+  });
+
+  it('recognizes a web page mapped instead of the file', async () => {
+    const error = await refusedBy('compress_pdf', 'compress-pdf', 415, { error: 'unsupported_content', detected_type: 'html' });
+
+    expect(error.message).toMatch(/share or preview link/);
+  });
+
+  it('keeps the general message for other contents', async () => {
+    const error = await refusedBy('compress_pdf', 'compress-pdf', 415, { error: 'unsupported_content', detected_type: 'zip' });
+
+    expect(error.message).toMatch(/does not match this action/);
+  });
+
+  it('names the page limit of the action', async () => {
+    const error = await refusedBy('rotate_pdf', 'rotate-pdf', 422, { error: 'too_many_pages', max_pages: 2000 }, {
+      rotation: '90',
+    });
+
+    expect(error.message).toMatch(/more than the 2,000 pages/);
+  });
+
+  it('names the empty field', async () => {
+    const error = await refusedBy('add_watermark', 'watermark-pdf', 400, { error: 'field_required', field: 'text' }, {
+      text: 'DRAFT',
+    });
+
+    expect(error.message).toMatch(/^The Watermark text field is empty\./);
+  });
+
+  it('does not read an error code as a property every object has', async () => {
+    const error = await refusedBy('compress_pdf', 'compress-pdf', 400, { error: 'constructor' });
+
+    expect(error.name).toBe('AppError');
+    expect(error.message).toMatch(/refused the request \(constructor\)/);
+  });
+});
+
 describe('Definition', () => {
   it.each(Object.keys(App.creates))('keeps the sample of %s aligned with its output fields', (key) => {
     const { sample, outputFields } = App.creates[key].operation;

@@ -11,7 +11,7 @@ module.exports = {
   noun: 'PDF',
   display: {
     label: 'Convert Office Document to PDF',
-    description: 'Converts a Word, Excel, PowerPoint or OpenDocument file to PDF.',
+    description: 'Converts a Word, Excel, PowerPoint, OpenDocument or Apple Pages file to PDF.',
   },
   operation: {
     inputFields: [
@@ -21,7 +21,7 @@ module.exports = {
         required: true,
         type: 'file',
         helpText:
-          'A Word, Excel, PowerPoint or OpenDocument file: map a file from an earlier step or paste a public URL. Up to 10 MB on the Dev plan, 200 MB on paid plans.',
+          'A Word, Excel, PowerPoint, OpenDocument or Apple Pages file: map a file from an earlier step or paste a public URL. Up to 10 MB on the Dev plan, 200 MB on paid plans. Numbers and Keynote files are not converted: export them to PDF from the app.',
       },
     ],
     perform,
