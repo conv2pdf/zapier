@@ -86,7 +86,7 @@ const HALTED = {
   field_required: (body) =>
     own(FIELD_LABELS, body.field) ? `The ${FIELD_LABELS[body.field]} field is empty.` : 'A required field is empty.',
   invalid_page_range: (body) =>
-    `The pages${body.range ? ` "${body.range}"` : ''} are not valid${Number.isInteger(body.total_pages) ? ` for this PDF of ${body.total_pages} pages` : ''}. Use page numbers and ranges separated by commas, such as 1-5,7,10-12.`,
+    `The pages${body.range ? ` "${body.range}"` : ''} are not valid${Number.isInteger(body.total_pages) ? ` for this PDF of ${body.total_pages} page${body.total_pages === 1 ? '' : 's'}` : ''}. Use page numbers and ranges separated by commas, such as 1-5,7,10-12.`,
   invalid_rotation: 'The rotation must be 90, 180 or 270 degrees.',
   invalid_format: 'The image format must be PNG or JPG.',
   invalid_quality: 'The image quality must be low, medium or high.',

@@ -348,6 +348,16 @@ describe('Extract Pages from PDF', () => {
     expect(error.name).toBe('HaltedError');
     expect(error.message).toMatch(/"9" are not valid for this PDF of 4 pages/);
   });
+
+  it('says "page" for a PDF of one page', async () => {
+    const error = await refusedBy('extract_pdf_pages', 'split-pdf', 400, {
+      error: 'invalid_page_range',
+      range: '2',
+      total_pages: 1,
+    }, { ranges: '2' });
+
+    expect(error.message).toMatch(/for this PDF of 1 page. /);
+  });
 });
 
 describe('Rotate PDF', () => {
