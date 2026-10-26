@@ -322,9 +322,108 @@ describe('Convert EPUB to PDF', () => {
   });
 });
 
+describe('Convert PostScript to PDF', () => {
+  it('sends a PostScript file without a name under the .ps extension', async () => {
+    source().get('/print/job').reply(200, '%!PS', { 'Content-Type': 'application/postscript' });
+    api()
+      .post('/v1/convert/ps-to-pdf', (body) => body.includes('filename="job.ps"'))
+      .reply(200, { job_id: 'jobP', status: 'success' });
+    mockDownloadAndDelete('jobP', '%PDF', 'job.pdf', 'application/pdf');
+
+    const result = await appTester(perform('convert_postscript_to_pdf'), bundleFor({ file: `${SOURCE}/print/job` }));
+
+    expect(result.file_name).toBe('job.pdf');
+  });
+
+  it('explains a PostScript file that draws no page', async () => {
+    const error = await refusedBy('convert_postscript_to_pdf', 'ps-to-pdf', 422, { error: 'ps_blank_output' });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/draws no page/);
+  });
+});
+
+describe('Convert HTML File to PDF', () => {
+  it('sends an HTML file without a name under the .html extension', async () => {
+    source().get('/export/invoice').reply(200, '<!doctype html>', { 'Content-Type': 'text/html; charset=utf-8' });
+    api()
+      .post('/v1/convert/html-to-pdf', (body) => body.includes('filename="invoice.html"'))
+      .reply(200, { job_id: 'jobH', status: 'success' });
+    mockDownloadAndDelete('jobH', '%PDF', 'invoice.pdf', 'application/pdf');
+
+    const result = await appTester(perform('convert_html_to_pdf'), bundleFor({ file: `${SOURCE}/export/invoice` }));
+
+    expect(result.file_name).toBe('invoice.pdf');
+  });
+
+  it('explains an HTML file that prints blank', async () => {
+    const error = await refusedBy('convert_html_to_pdf', 'html-to-pdf', 422, { error: 'html_blank_output' });
+
+    expect(error.message).toMatch(/prints as a blank page/);
+  });
+});
+
+describe('Convert Web Page to PDF', () => {
+  it('sends the address and no file', async () => {
+    let sent;
+    api()
+      .post('/v1/convert/url-to-pdf', (body) => {
+        sent = body;
+        return true;
+      })
+      .reply(200, { job_id: 'jobU', status: 'success', quota: { used: 9, quota: 300 } });
+    mockDownloadAndDelete('jobU', '%PDF', 'example-com.pdf', 'application/pdf');
+
+    const result = await appTester(perform('convert_url_to_pdf'), bundleFor({ url: ' https://example.com/pricing ' }));
+
+    expect(fieldOf(sent, 'url')).toBe('https://example.com/pricing');
+    expect(sent).not.toMatch(/filename=/);
+    expect(result).toMatchObject({ file_name: 'example-com.pdf', quota_used: 9 });
+    expect(nock.isDone()).toBe(true);
+  });
+
+  it('stops before calling conv2pdf when no address is given', async () => {
+    const error = await appTester(perform('convert_url_to_pdf'), bundleFor({ url: '  ' })).catch((e) => e);
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/Web page address field is empty/);
+  });
+
+  it.each([
+    [422, { error: 'invalid_url', cause: 'local_name' }, /^This web page address cannot be converted\. conv2pdf only opens public web pages, not names of a local network\.\n/],
+    [422, { error: 'invalid_url', cause: 'something_new' }, /^This web page address cannot be converted\.\n/],
+    [422, { error: 'url_http_error', http_status: 404 }, /answered with an error \(HTTP 404\)/],
+    [422, { error: 'url_unreachable' }, /could not be reached/],
+    [422, { error: 'url_blank_page' }, /prints as a blank page/],
+  ])('explains a refused address (%s %o)', async (status, body, expected) => {
+    api().post('/v1/convert/url-to-pdf').reply(status, body);
+
+    const error = await appTester(perform('convert_url_to_pdf'), bundleFor({ url: 'https://example.com/' })).catch((e) => e);
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(expected);
+  });
+});
+
+describe('Split PDF', () => {
+  it('returns the ZIP of the pages', async () => {
+    const { sent, result } = await sentBy('split_pdf', 'split-pdf', {}, ['PK', 'in.zip', 'application/zip']);
+
+    expect(sent).not.toMatch(/name="ranges"/);
+    expect(result.file_name).toBe('in.zip');
+    expect(stash.mock.calls[0][3]).toBe('application/zip');
+  });
+
+  it('explains a PDF of a single page', async () => {
+    const error = await refusedBy('split_pdf', 'split-pdf', 422, { error: 'pdf_single_page' });
+
+    expect(error.message).toMatch(/single page: there is nothing to split/);
+  });
+});
+
 describe('Extract Pages from PDF', () => {
   it('sends the pages to keep', async () => {
-    const { sent } = await sentBy('extract_pdf_pages', 'split-pdf', { ranges: ' 1-3,5 ' });
+    const { sent } = await sentBy('extract_pdf_pages', 'extract-pages', { ranges: ' 1-3,5 ' });
 
     expect(fieldOf(sent, 'ranges')).toBe('1-3,5');
   });
@@ -339,24 +438,38 @@ describe('Extract Pages from PDF', () => {
   });
 
   it('names the page count of the PDF when the pages are out of range', async () => {
-    const error = await refusedBy('extract_pdf_pages', 'split-pdf', 400, {
+    const error = await refusedBy('extract_pdf_pages', 'extract-pages', 400, {
       error: 'invalid_page_range',
       range: '9',
+      cause: 'beyond_last_page',
       total_pages: 4,
     }, { ranges: '9' });
 
     expect(error.name).toBe('HaltedError');
-    expect(error.message).toMatch(/"9" are not valid for this PDF of 4 pages/);
+    expect(error.message).toMatch(/^The pages "9" are not valid\. The PDF has 4 pages\.\n/);
   });
 
   it('says "page" for a PDF of one page', async () => {
-    const error = await refusedBy('extract_pdf_pages', 'split-pdf', 400, {
+    const error = await refusedBy('extract_pdf_pages', 'extract-pages', 400, {
       error: 'invalid_page_range',
       range: '2',
+      cause: 'beyond_last_page',
       total_pages: 1,
     }, { ranges: '2' });
 
-    expect(error.message).toMatch(/for this PDF of 1 page. /);
+    expect(error.message).toMatch(/^The pages "2" are not valid\. The PDF has 1 page\.\n/);
+  });
+
+  it.each([
+    ['page_zero', /Page numbers start at 1\./],
+    ['whole_document', /the whole document, in its order/],
+    ['syntax', /Use page numbers and ranges separated by commas/],
+  ])('says why a range is refused (%s)', async (cause, expected) => {
+    const error = await refusedBy('extract_pdf_pages', 'extract-pages', 400, { error: 'invalid_page_range', range: '0', cause }, {
+      ranges: '0',
+    });
+
+    expect(error.message).toMatch(expected);
   });
 });
 
@@ -544,6 +657,7 @@ const PDF_PASSWORD_ACTIONS = [
   'convert_pdf_to_word',
   'convert_pdf_to_images',
   'extract_pdf_pages',
+  'split_pdf',
   'rotate_pdf',
   'add_watermark',
   'add_page_numbers',

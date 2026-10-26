@@ -8,8 +8,12 @@ const convertImageToPdf = require('./creates/convert_image_to_pdf');
 const convertHeicToPdf = require('./creates/convert_heic_to_pdf');
 const convertHeicToJpg = require('./creates/convert_heic_to_jpg');
 const convertEpubToPdf = require('./creates/convert_epub_to_pdf');
+const convertPostscriptToPdf = require('./creates/convert_postscript_to_pdf');
+const convertHtmlToPdf = require('./creates/convert_html_to_pdf');
+const convertUrlToPdf = require('./creates/convert_url_to_pdf');
 const mergePdfs = require('./creates/merge_pdfs');
 const extractPdfPages = require('./creates/extract_pdf_pages');
+const splitPdf = require('./creates/split_pdf');
 const rotatePdf = require('./creates/rotate_pdf');
 const addPageNumbers = require('./creates/add_page_numbers');
 const addWatermark = require('./creates/add_watermark');
@@ -38,8 +42,12 @@ module.exports = {
     [convertHeicToPdf.key]: convertHeicToPdf,
     [convertHeicToJpg.key]: convertHeicToJpg,
     [convertEpubToPdf.key]: convertEpubToPdf,
+    [convertPostscriptToPdf.key]: convertPostscriptToPdf,
+    [convertHtmlToPdf.key]: convertHtmlToPdf,
+    [convertUrlToPdf.key]: convertUrlToPdf,
     [mergePdfs.key]: mergePdfs,
     [extractPdfPages.key]: extractPdfPages,
+    [splitPdf.key]: splitPdf,
     [rotatePdf.key]: rotatePdf,
     [addPageNumbers.key]: addPageNumbers,
     [addWatermark.key]: addWatermark,

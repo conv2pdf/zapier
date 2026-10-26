@@ -36,6 +36,7 @@ const WEB_PAGE =
 const CONTENT_HINTS = {
   pdf: 'This file is already a PDF.',
   epub: 'This file is an EPUB e-book: use the Convert EPUB to PDF action.',
+  postscript: 'This file is PostScript or EPS: use the Convert PostScript to PDF action.',
   pages: OFFICE_ELSEWHERE,
   docx: OFFICE_ELSEWHERE,
   xlsx: OFFICE_ELSEWHERE,
@@ -50,7 +51,7 @@ const CONTENT_HINTS = {
   webp: IMAGE_ELSEWHERE,
   tiff: IMAGE_ELSEWHERE,
   heic: 'This file is a HEIC photo: use the Convert HEIC to PDF or Convert HEIC to JPG action.',
-  html: WEB_PAGE,
+  html: `${WEB_PAGE} To convert an HTML file, use the Convert HTML File to PDF action.`,
   xml: WEB_PAGE,
   svg: WEB_PAGE,
   text: 'This file contains plain text, not the expected document.',
@@ -66,7 +67,31 @@ const CONTENT_HINTS = {
 };
 
 // The fields the API names in `field` when a required one is empty.
-const FIELD_LABELS = { ranges: 'Pages', text: 'Watermark text', password: 'Password' };
+const FIELD_LABELS = { ranges: 'Pages', text: 'Watermark text', password: 'Password', url: 'Web page address' };
+
+// Why an address was refused (`cause` of `invalid_url`).
+const URL_CAUSES = {
+  malformed: 'Write the full address, starting with https:// or http://.',
+  scheme: 'Only http and https addresses can be converted.',
+  credentials: 'Remove the user name and password from the address: conv2pdf opens the page without signing in.',
+  private_address: 'conv2pdf only opens public web pages, not addresses of a private or local network.',
+  local_name: 'conv2pdf only opens public web pages, not names of a local network.',
+  too_long: 'The address is too long.',
+};
+
+// Why a page range was refused (`cause` of `invalid_page_range`), once the range reads.
+function rangeCause(body) {
+  if (body.cause === 'page_zero') return 'Page numbers start at 1.';
+  if (body.cause === 'beyond_last_page') {
+    return Number.isInteger(body.total_pages)
+      ? `The PDF has ${body.total_pages} page${body.total_pages === 1 ? '' : 's'}.`
+      : 'A page is beyond the last page of the PDF.';
+  }
+  if (body.cause === 'whole_document') {
+    return 'These pages are the whole document, in its order: the result would be the same PDF.';
+  }
+  return 'Use page numbers and ranges separated by commas, such as 1-5,7,10-12.';
+}
 
 // Messages for the codes conv2pdf returns in the `error` field, as text or built from
 // the response body. Halted: the problem is this file or this run, the Zap stays on.
@@ -85,8 +110,7 @@ const HALTED = {
   source_unreadable: 'conv2pdf could not read this file: it may be damaged or incomplete.',
   field_required: (body) =>
     own(FIELD_LABELS, body.field) ? `The ${FIELD_LABELS[body.field]} field is empty.` : 'A required field is empty.',
-  invalid_page_range: (body) =>
-    `The pages${body.range ? ` "${body.range}"` : ''} are not valid${Number.isInteger(body.total_pages) ? ` for this PDF of ${body.total_pages} page${body.total_pages === 1 ? '' : 's'}` : ''}. Use page numbers and ranges separated by commas, such as 1-5,7,10-12.`,
+  invalid_page_range: (body) => `The pages${body.range ? ` "${body.range}"` : ''} are not valid. ${rangeCause(body)}`,
   invalid_rotation: 'The rotation must be 90, 180 or 270 degrees.',
   invalid_format: 'The image format must be PNG or JPG.',
   invalid_quality: 'The image quality must be low, medium or high.',
@@ -108,6 +132,19 @@ const HALTED = {
   epub_blank_output:
     'This e-book could not be converted: its pages are full-screen images (comics, picture books, manga), and their layout does not survive the conversion to PDF.',
   epub_too_long: 'The e-book is longer than the 1,500 pages conv2pdf converts at once.',
+  pdf_single_page: 'This PDF has a single page: there is nothing to split.',
+  ps_blank_output:
+    'This PostScript file draws no page: a file that only holds a font or a library of procedures, or whose program fails, produces none.',
+  html_blank_output:
+    'This HTML file prints as a blank page: nothing in it is drawn when printed. It may be empty, or hide its content for printing.',
+  invalid_url: (body) => `This web page address cannot be converted. ${own(URL_CAUSES, body.cause) ?? ''}`.trim(),
+  url_unreachable: 'The web page could not be reached. Check the address, and that the site is online and public.',
+  url_http_error: (body) =>
+    `The web page answered with an error${Number.isInteger(body.http_status) ? ` (HTTP ${body.http_status})` : ''}. Check that the address opens in a browser without signing in: conv2pdf opens the page without a session.`,
+  url_blocked:
+    'The web page leads to a private network address: conv2pdf only opens public web pages, and the page or one of its redirects points to a private or local network.',
+  url_blank_page: 'The web page prints as a blank page: its content may need a login, or be hidden for printing.',
+  no_file_expected: 'Convert Web Page to PDF takes the address of a page, not a file.',
   output_too_large: 'The result is too large to be delivered.',
   conversion_failed: 'conv2pdf could not process this file. Failed conversions do not count against your quota.',
   conversion_timeout:
