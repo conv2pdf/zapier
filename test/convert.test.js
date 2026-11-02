@@ -14,7 +14,7 @@ const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.doc
 const bundleFor = (inputData, meta = {}) => ({ authData: { apiKey: KEY }, inputData, meta });
 const perform = (key) => App.creates[key].operation.perform;
 
-// The source host must never see the conv2pdf key.
+// The source host must never see the Conv2pdf key.
 const source = () => nock(SOURCE, { badheaders: ['authorization'] });
 const api = () =>
   nock(API, { reqheaders: { authorization: `Bearer ${KEY}`, 'user-agent': (ua) => ua.includes(USER_AGENT) } });
@@ -98,7 +98,7 @@ describe('Convert Office Document to PDF', () => {
   });
 });
 
-describe('conv2pdf errors', () => {
+describe('Conv2pdf errors', () => {
   const convertWith = (status, body, headers) => {
     source().get('/a.docx').reply(200, 'DOCX-BYTES', { 'Content-Type': DOCX });
     api().post('/v1/convert/office-to-pdf').reply(status, body, headers);
@@ -210,7 +210,7 @@ describe('Convert PDF to Word', () => {
   });
 });
 
-// Runs an action on a PDF and returns the multipart body conv2pdf received.
+// Runs an action on a PDF and returns the multipart body Conv2pdf received.
 async function sentBy(key, tool, inputData, download = ['%PDF out', 'in.pdf', 'application/pdf']) {
   let sent;
   source().get('/in.pdf').reply(200, 'PDF-IN', { 'Content-Type': 'application/pdf' });
@@ -231,7 +231,7 @@ const fieldOf = (body, name) => {
   return match ? match[1] : undefined;
 };
 
-// Runs an action on a PDF that conv2pdf refuses.
+// Runs an action on a PDF that Conv2pdf refuses.
 function refusedBy(key, tool, status, body, inputData = {}) {
   source().get('/in.pdf').reply(200, 'PDF-IN', { 'Content-Type': 'application/pdf' });
   api().post(`/v1/convert/${tool}`).reply(status, body);
@@ -382,7 +382,7 @@ describe('Convert Web Page to PDF', () => {
     expect(nock.isDone()).toBe(true);
   });
 
-  it('stops before calling conv2pdf when no address is given', async () => {
+  it('stops before calling Conv2pdf when no address is given', async () => {
     const error = await appTester(perform('convert_url_to_pdf'), bundleFor({ url: '  ' })).catch((e) => e);
 
     expect(error.name).toBe('HaltedError');
@@ -390,7 +390,7 @@ describe('Convert Web Page to PDF', () => {
   });
 
   it.each([
-    [422, { error: 'invalid_url', cause: 'local_name' }, /^This web page address cannot be converted\. conv2pdf only opens public web pages, not names of a local network\.\n/],
+    [422, { error: 'invalid_url', cause: 'local_name' }, /^This web page address cannot be converted\. Conv2pdf only opens public web pages, not names of a local network\.\n/],
     [422, { error: 'invalid_url', cause: 'something_new' }, /^This web page address cannot be converted\.\n/],
     [422, { error: 'url_http_error', http_status: 404 }, /answered with an error \(HTTP 404\)/],
     [422, { error: 'url_unreachable' }, /could not be reached/],
@@ -428,7 +428,7 @@ describe('Extract Pages from PDF', () => {
     expect(fieldOf(sent, 'ranges')).toBe('1-3,5');
   });
 
-  it('stops before calling conv2pdf when no page is given', async () => {
+  it('stops before calling Conv2pdf when no page is given', async () => {
     const error = await appTester(perform('extract_pdf_pages'), bundleFor({ file: `${SOURCE}/in.pdf`, ranges: ' ' })).catch(
       (e) => e,
     );
@@ -508,13 +508,13 @@ describe('Add Watermark to PDF', () => {
     expect(fieldOf(sent, 'text')).toBe('CONFIDENTIAL');
   });
 
-  it('stops before calling conv2pdf when the text is empty', async () => {
+  it('stops before calling Conv2pdf when the text is empty', async () => {
     const error = await appTester(perform('add_watermark'), bundleFor({ file: `${SOURCE}/in.pdf`, text: '  ' })).catch((e) => e);
 
     expect(error.name).toBe('HaltedError');
   });
 
-  it('explains a text that conv2pdf cannot print', async () => {
+  it('explains a text that Conv2pdf cannot print', async () => {
     const error = await refusedBy('add_watermark', 'watermark-pdf', 422, { error: 'unsupported_characters', field: 'text' }, {
       text: '機密',
     });

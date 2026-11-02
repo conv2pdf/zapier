@@ -9,7 +9,7 @@ async function perform(z, bundle) {
     fields: { password: String(bundle.inputData.pdf_passphrase ?? '') },
     messages: {
       needs_password: 'This PDF needs its password to open: fill in the Password field.',
-      wrong_password: 'The password does not open this PDF. conv2pdf removes a password you know, it does not guess it.',
+      wrong_password: 'The password does not open this PDF. Conv2pdf removes a password you know, it does not guess it.',
     },
   });
 }
