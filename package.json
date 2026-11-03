@@ -16,14 +16,14 @@
   },
   "dependencies": {
     "form-data": "4.0.6",
-    "zapier-platform-core": "19.1.0"
+    "zapier-platform-core": "19.3.0"
   },
   "overrides": {
     "form-data": "4.0.6"
   },
   "devDependencies": {
     "jest": "^30.0.0",
-    "nock": "^14.0.0",
-    "zapier-platform-cli": "19.1.0"
+    "nock": "^15.0.5",
+    "zapier-platform-cli": "19.3.0"
   }
 }
