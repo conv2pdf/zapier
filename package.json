@@ -1,6 +1,6 @@
 {
   "name": "zapier-conv2pdf",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Conv2pdf is a file conversion API that turns documents, images, photos, e-books and web pages into PDF, and merges, splits, compresses, protects or converts PDFs.",
   "homepage": "https://conv2pdf.com/en/api/",
   "main": "index.js",

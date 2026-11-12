@@ -322,6 +322,50 @@ describe('Convert EPUB to PDF', () => {
   });
 });
 
+describe('Convert XPS to PDF', () => {
+  it('sends an XPS document without a name under the .xps extension', async () => {
+    source().get('/print/order').reply(200, 'PK-XPS', { 'Content-Type': 'application/vnd.ms-xpsdocument' });
+    api()
+      .post('/v1/convert/xps-to-pdf', (body) => body.includes('filename="order.xps"'))
+      .reply(200, { job_id: 'jobX', status: 'success' });
+    mockDownloadAndDelete('jobX', '%PDF', 'order.pdf', 'application/pdf');
+
+    const result = await appTester(perform('convert_xps_to_pdf'), bundleFor({ file: `${SOURCE}/print/order` }));
+
+    expect(result.file_name).toBe('order.pdf');
+  });
+
+  it('names an OpenXPS document without a name .oxps', async () => {
+    source().get('/print/scan').reply(200, 'PK-OXPS', { 'Content-Type': 'application/oxps' });
+    api()
+      .post('/v1/convert/xps-to-pdf', (body) => body.includes('filename="scan.oxps"'))
+      .reply(200, { job_id: 'jobO', status: 'success' });
+    mockDownloadAndDelete('jobO', '%PDF', 'scan.pdf', 'application/pdf');
+
+    const result = await appTester(perform('convert_xps_to_pdf'), bundleFor({ file: `${SOURCE}/print/scan` }));
+
+    expect(result.file_name).toBe('scan.pdf');
+  });
+
+  it('explains a document longer than the API converts', async () => {
+    const error = await refusedBy('convert_xps_to_pdf', 'xps-to-pdf', 422, {
+      error: 'too_many_pages',
+      pages: 1800,
+      max_pages: 1500,
+    });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/1,500 pages/);
+  });
+
+  it('explains an unreadable document', async () => {
+    const error = await refusedBy('convert_xps_to_pdf', 'xps-to-pdf', 422, { error: 'source_unreadable' });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/could not read this file/);
+  });
+});
+
 describe('Convert PostScript to PDF', () => {
   it('sends a PostScript file without a name under the .ps extension', async () => {
     source().get('/print/job').reply(200, '%!PS', { 'Content-Type': 'application/postscript' });
@@ -613,6 +657,15 @@ describe('Files that do not match the action', () => {
     });
 
     expect(error.message).toMatch(/Convert EPUB to PDF action/);
+  });
+
+  it('points an XPS document to the XPS action', async () => {
+    const error = await refusedBy('convert_office_to_pdf', 'office-to-pdf', 415, {
+      error: 'unsupported_content',
+      detected_type: 'xps',
+    });
+
+    expect(error.message).toMatch(/Convert XPS to PDF action/);
   });
 
   it('recognizes a web page mapped instead of the file', async () => {

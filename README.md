@@ -1,6 +1,6 @@
 # Conv2pdf for Zapier
 
-The Zapier integration of the [Conv2pdf API](https://conv2pdf.com/en/api/): it converts documents, images, iPhone photos, e-books, PostScript and HTML files and web pages to PDF, and merges, splits, rotates, numbers, watermarks, compresses, protects, unlocks and converts PDFs, hosted in the EU (France).
+The Zapier integration of the [Conv2pdf API](https://conv2pdf.com/en/api/): it converts documents, images, iPhone photos, e-books, PostScript, XPS and HTML files and web pages to PDF, and merges, splits, rotates, numbers, watermarks, compresses, protects, unlocks and converts PDFs, hosted in the EU (France).
 
 It is published on Zapier: [Conv2pdf integrations](https://zapier.com/apps/conv2pdf/integrations). AI assistants can also call its actions through Zapier MCP.
 
@@ -14,6 +14,7 @@ It is published on Zapier: [Conv2pdf integrations](https://zapier.com/apps/conv2
 | Convert HEIC to JPG | `heic-to-jpg` | a HEIC or HEIF photo |
 | Convert EPUB to PDF | `epub-to-pdf` | an EPUB e-book without DRM |
 | Convert PostScript to PDF | `ps-to-pdf` | a PostScript or EPS file |
+| Convert XPS to PDF | `xps-to-pdf` | an XPS or OpenXPS document |
 | Convert HTML File to PDF | `html-to-pdf` | an HTML file |
 | Convert Web Page to PDF | `url-to-pdf` | the address of a public web page, no file |
 | Merge PDFs | `merge-pdf` | two or more PDFs, in order |

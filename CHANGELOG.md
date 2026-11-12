@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0
+
+- New action: Convert XPS to PDF (create/convert_xps_to_pdf) converts an XPS or OpenXPS document (.xps, .oxps), such as a file printed with Microsoft XPS Document Writer, to PDF.
+- A file that holds an XPS document, mapped to another action, gets a message that names the Convert XPS to PDF action.
+
 ## 1.3.0
 
 - New actions, so that every conv2pdf API tool is available in Zapier again: Convert PostScript to PDF (create/convert_postscript_to_pdf), Convert HTML File to PDF (create/convert_html_to_pdf), Convert Web Page to PDF (create/convert_url_to_pdf), which takes the address of a public page and no file, and Split PDF (create/split_pdf), which puts every page of a PDF in its own PDF file, returned in a ZIP file.

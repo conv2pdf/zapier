@@ -37,6 +37,7 @@ const CONTENT_HINTS = {
   pdf: 'This file is already a PDF.',
   epub: 'This file is an EPUB e-book: use the Convert EPUB to PDF action.',
   postscript: 'This file is PostScript or EPS: use the Convert PostScript to PDF action.',
+  xps: 'This file is an XPS document: use the Convert XPS to PDF action.',
   pages: OFFICE_ELSEWHERE,
   docx: OFFICE_ELSEWHERE,
   xlsx: OFFICE_ELSEWHERE,
