@@ -10,6 +10,7 @@ const convertHeicToJpg = require('./creates/convert_heic_to_jpg');
 const convertEpubToPdf = require('./creates/convert_epub_to_pdf');
 const convertPostscriptToPdf = require('./creates/convert_postscript_to_pdf');
 const convertXpsToPdf = require('./creates/convert_xps_to_pdf');
+const convertMarkdownToPdf = require('./creates/convert_markdown_to_pdf');
 const convertHtmlToPdf = require('./creates/convert_html_to_pdf');
 const convertUrlToPdf = require('./creates/convert_url_to_pdf');
 const mergePdfs = require('./creates/merge_pdfs');
@@ -45,6 +46,7 @@ module.exports = {
     [convertEpubToPdf.key]: convertEpubToPdf,
     [convertPostscriptToPdf.key]: convertPostscriptToPdf,
     [convertXpsToPdf.key]: convertXpsToPdf,
+    [convertMarkdownToPdf.key]: convertMarkdownToPdf,
     [convertHtmlToPdf.key]: convertHtmlToPdf,
     [convertUrlToPdf.key]: convertUrlToPdf,
     [mergePdfs.key]: mergePdfs,

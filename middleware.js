@@ -38,6 +38,9 @@ const CONTENT_HINTS = {
   epub: 'This file is an EPUB e-book: use the Convert EPUB to PDF action.',
   postscript: 'This file is PostScript or EPS: use the Convert PostScript to PDF action.',
   xps: 'This file is an XPS document: use the Convert XPS to PDF action.',
+  markdown: 'This file is a Markdown document: use the Convert Markdown to PDF action.',
+  text_encoding:
+    'This Markdown file is not saved as UTF-8, and its accented characters would come out garbled. Save it as UTF-8 and try again.',
   pages: OFFICE_ELSEWHERE,
   docx: OFFICE_ELSEWHERE,
   xlsx: OFFICE_ELSEWHERE,
@@ -136,6 +139,7 @@ const HALTED = {
   pdf_single_page: 'This PDF has a single page: there is nothing to split.',
   ps_blank_output:
     'This PostScript file draws no page: a file that only holds a font or a library of procedures, or whose program fails, produces none.',
+  markdown_blank_output: 'This Markdown file has nothing to lay out: it is empty, or holds only its front matter.',
   html_blank_output:
     'This HTML file prints as a blank page: nothing in it is drawn when printed. It may be empty, or hide its content for printing.',
   invalid_url: (body) => `This web page address cannot be converted. ${own(URL_CAUSES, body.cause) ?? ''}`.trim(),

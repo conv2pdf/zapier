@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.0
+
+- New action: Convert Markdown to PDF (create/convert_markdown_to_pdf) converts a Markdown file (.md) to PDF, laid out as GitHub shows it: tables, task lists, highlighted code and math included. The text must be saved as UTF-8.
+- A Markdown file mapped to another action gets a message that names the Convert Markdown to PDF action; a file that is not UTF-8, or that has nothing to lay out, gets a message that says so.
+
 ## 1.4.0
 
 - New action: Convert XPS to PDF (create/convert_xps_to_pdf) converts an XPS or OpenXPS document (.xps, .oxps), such as a file printed with Microsoft XPS Document Writer, to PDF.

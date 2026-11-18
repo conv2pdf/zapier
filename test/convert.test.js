@@ -366,6 +366,37 @@ describe('Convert XPS to PDF', () => {
   });
 });
 
+describe('Convert Markdown to PDF', () => {
+  it('sends a Markdown file without a name under the .md extension', async () => {
+    source().get('/notes/readme').reply(200, '# Title', { 'Content-Type': 'text/markdown; charset=utf-8' });
+    api()
+      .post('/v1/convert/markdown-to-pdf', (body) => body.includes('filename="readme.md"'))
+      .reply(200, { job_id: 'jobM', status: 'success' });
+    mockDownloadAndDelete('jobM', '%PDF', 'readme.pdf', 'application/pdf');
+
+    const result = await appTester(perform('convert_markdown_to_pdf'), bundleFor({ file: `${SOURCE}/notes/readme` }));
+
+    expect(result.file_name).toBe('readme.pdf');
+  });
+
+  it('explains a file that is not UTF-8', async () => {
+    const error = await refusedBy('convert_markdown_to_pdf', 'markdown-to-pdf', 415, {
+      error: 'unsupported_content',
+      detected_type: 'text_encoding',
+    });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/not saved as UTF-8/);
+  });
+
+  it('explains a file with nothing to lay out', async () => {
+    const error = await refusedBy('convert_markdown_to_pdf', 'markdown-to-pdf', 422, { error: 'markdown_blank_output' });
+
+    expect(error.name).toBe('HaltedError');
+    expect(error.message).toMatch(/nothing to lay out/);
+  });
+});
+
 describe('Convert PostScript to PDF', () => {
   it('sends a PostScript file without a name under the .ps extension', async () => {
     source().get('/print/job').reply(200, '%!PS', { 'Content-Type': 'application/postscript' });
@@ -657,6 +688,15 @@ describe('Files that do not match the action', () => {
     });
 
     expect(error.message).toMatch(/Convert EPUB to PDF action/);
+  });
+
+  it('points a Markdown document to the Markdown action', async () => {
+    const error = await refusedBy('convert_html_to_pdf', 'html-to-pdf', 415, {
+      error: 'unsupported_content',
+      detected_type: 'markdown',
+    });
+
+    expect(error.message).toMatch(/Convert Markdown to PDF action/);
   });
 
   it('points an XPS document to the XPS action', async () => {
