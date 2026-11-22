@@ -54,6 +54,8 @@ npx zapier-platform push
 
 The integration runs on Node.js 22 in Zapier. `branding/logo-512.png` is the logo uploaded in the Zapier Platform UI.
 
+To release a version: set it in `package.json` and give it a section in `CHANGELOG.md`, commit, then run `npx zapier-platform push`, `npx zapier-platform promote <version>` and `npx zapier-platform migrate <previous> <version>`. The commit that was pushed then gets a tag named after the version, and a GitHub release whose notes are that section of `CHANGELOG.md`.
+
 ## License
 
 MIT
